@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fruit Catcher: Start Mission</title>
+    <link href="https://fonts.googleapis.com/css2?family=Jockey+One&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: radial-gradient(circle at top right, #0f172a, #020617);
+            color: #f1f5f9;
+            font-family: 'Jockey One', sans-serif;
+            overflow: hidden; 
+            height: 100vh;
+        }
+
+        /* START SCREEN OVERLAY */
+        #start-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 6, 23, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            text-align: center;
+        }
+
+        #start-screen h1 {
+            font-size: 60px;
+            background: linear-gradient(90deg, #00FFE1, #32CD32);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        /* HUD */
+        #ui-layer {
+            position: absolute;
+            top: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+            pointer-events: none;
+            opacity: 0; /* Hidden until game starts */
+            transition: opacity 0.5s;
+        }
+
+        #game-canvas { width: 100vw; height: 100vh; position: relative; display: none; }
+
+        /* THE PLAYER */
+        #lollipop {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            width: 70px;
+            height: 110px;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .pop-head {
+            width: 70px; height: 70px;
+            background: repeating-conic-gradient(#ff4da6 0% 25%, #32CD32 25% 50%, #00FFE1 50% 75%, #FF8C00 75% 100%);
+            border-radius: 50%;
+            border: 4px solid #fff;
+            animation: rotatePop 4s linear infinite;
+        }
+
+        @keyframes rotatePop { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .pop-stick { width: 100%; height: 45px; width: 10px; background: #f1f5f9; border-radius: 0 0 5px 5px; }
+
+        .falling-fruit { position: absolute; font-size: 45px; user-select: none; }
+
+        /* BUTTON STYLE */
+        .btn-main {
+            background: linear-gradient(90deg, #32CD32, #00d084);
+            color: white;
+            border: none;
+            padding: 15px 50px;
+            font-family: 'Jockey One', sans-serif;
+            font-size: 28px;
+            border-radius: 40px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(50, 205, 50, 0.4);
+            transition: transform 0.2s;
+        }
+
+        .btn-main:hover { transform: scale(1.1); }
+
+        #game-over {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #0f172a; padding: 50px; border-radius: 30px; border: 3px solid #32CD32;
+            text-align: center; display: none; z-index: 4000;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1>FRUIT HARVEST</h1>
+        <p>Catch as many fruits as you can in 30 seconds!</p>
+        <button class="btn-main" onclick="initGame()">START GAME</button>
+    </div>
+
+    <div id="ui-layer">
+        <div style="background:rgba(255,255,255,0.1); padding:10px 20px; border-radius:15px; border:1px solid #32CD32;">
+            Score: <span id="score">0</span>
+        </div>
+        <div style="background:rgba(255,255,255,0.1); padding:10px 20px; border-radius:15px; border:1px solid #FF8C00;">
+            Time: <span id="timer">30</span>s
+        </div>
+    </div>
+
+    <div id="game-canvas">
+        <div id="lollipop">
+            <div class="pop-head"></div>
+            <div class="pop-stick"></div>
+        </div>
+    </div>
+
+    <div id="game-over">
+        <h1 style="color:#32CD32;">GAME OVER</h1>
+        <h2 id="final-score" style="font-size: 40px;">0</h2>
+        <button class="btn-main" onclick="location.reload()">REPLAY</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('game-canvas');
+        const lollipop = document.getElementById('lollipop');
+        const scoreElement = document.getElementById('score');
+        const timerElement = document.getElementById('timer');
+        
+        let score = 0;
+        let timeLeft = 30;
+        let gameActive = false;
+
+        // 1. THIS FUNCTION STARTS EVERYTHING
+        function initGame() {
+            gameActive = true;
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('ui-layer').style.opacity = '1';
+            canvas.style.display = 'block';
+            
+            spawnFruit();
+            startTimer();
+        }
+
+        window.addEventListener('mousemove', (e) => {
+            if (!gameActive) return;
+            let x = e.clientX;
+            if (x < 35) x = 35;
+            if (x > window.innerWidth - 35) x = window.innerWidth - 35;
+            lollipop.style.left = x + 'px';
+        });
+
+        function spawnFruit() {
+            if (!gameActive) return;
+            const fruits = ['🍎', '🍊', '🍓', '🍉', '🍍', '🥭'];
+            const fruit = document.createElement('div');
+            fruit.className = 'falling-fruit';
+            fruit.innerText = fruits[Math.floor(Math.random() * fruits.length)];
+            fruit.style.left = Math.random() * (window.innerWidth - 50) + 'px';
+            fruit.style.top = '-60px';
+            canvas.appendChild(fruit);
+
+            let topPos = -60;
+            const fallSpeed = 4 + Math.random() * 4;
+
+            const fallInterval = setInterval(() => {
+                if (!gameActive) { clearInterval(fallInterval); return; }
+                topPos += fallSpeed;
+                fruit.style.top = topPos + 'px';
+
+                const lollyRect = lollipop.getBoundingClientRect();
+                const fruitRect = fruit.getBoundingClientRect();
+
+                if (fruitRect.bottom >= lollyRect.top && fruitRect.right >= lollyRect.left && 
+                    fruitRect.left <= lollyRect.right && fruitRect.top <= (lollyRect.top + 70)) {
+                    score++;
+                    scoreElement.innerText = score;
+                    fruit.remove();
+                    clearInterval(fallInterval);
+                }
+
+                if (topPos > window.innerHeight) { fruit.remove(); clearInterval(fallInterval); }
+            }, 20);
+
+            setTimeout(spawnFruit, 700);
+        }
+
+        function startTimer() {
+            const countdown = setInterval(() => {
+                if (!gameActive) { clearInterval(countdown); return; }
+                timeLeft--;
+                timerElement.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    gameActive = false;
+                    document.getElementById('game-over').style.display = 'block';
+                    document.getElementById('final-score').innerText = "Total Score: " + score;
+                }
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
